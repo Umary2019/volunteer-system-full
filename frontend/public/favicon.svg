@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Student Volunteer Program</title>
+  <rect width="64" height="64" rx="14" fill="#176b5b"/>
+  <path d="M32 48.5 16.8 34.2C8.9 26.8 14.2 14 24.6 14c3.1 0 5.7 1.3 7.4 3.8 1.7-2.5 4.3-3.8 7.4-3.8 10.4 0 15.7 12.8 7.8 20.2z" fill="#fff8eb"/>
+  <path d="m23.5 31.5 5.4 5.4 11.8-12" fill="none" stroke="#d8a84e" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
+</svg>
