@@ -1,0 +1,30 @@
+:root {
+  /* Color */
+  --ink-navy: #16213e;
+  --ink-navy-deep: #0f1830;
+  --parchment: #faf8f2;
+  --parchment-dim: #f1ede2;
+  --academic-gold: #c79a3e;
+  --academic-gold-soft: #e6c877;
+  --slate: #5b6478;
+  --slate-light: #8b93a3;
+  --clay: #b84b3c;
+  --clay-soft: #f6e3e0;
+  --moss: #2f7a5f;
+  --moss-soft: #e2ede8;
+  --line: #ddd6c6;
+
+  /* Type */
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Scale */
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+
+  --radius: 3px;
+  --shadow-card: 0 12px 32px -12px rgba(15, 24, 48, 0.18);
+}

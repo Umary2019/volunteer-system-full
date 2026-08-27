@@ -1,0 +1,80 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink-navy);
+  background: var(--parchment);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+  color: var(--ink-navy);
+}
+
+p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--ink-navy);
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: var(--font-body);
+}
+
+/* Visible keyboard focus everywhere */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--academic-gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-form-panel,
+  .profile-form-page,
+  .profile-page {
+    padding: 1.25rem 1rem;
+  }
+
+  .profile-form-card {
+    padding: 1.25rem;
+  }
+
+  .page-title,
+  .profile-page__title {
+    font-size: 2rem;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+}

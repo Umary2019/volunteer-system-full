@@ -1,0 +1,29 @@
+.profile-form-page {
+  min-height: 100vh;
+  background: var(--parchment);
+  padding: 3rem 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.profile-form-card {
+  width: 100%;
+  max-width: 640px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2.5rem;
+  height: fit-content;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.25rem;
+}
+
+@media (max-width: 560px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
