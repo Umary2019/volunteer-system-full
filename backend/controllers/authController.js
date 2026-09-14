@@ -6,6 +6,7 @@ const generateToken = require('../utils/generateToken');
 const sendEmail = require('../utils/sendEmail');
 
 const OTP_EXPIRY_MINUTES = 10;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Step 1 of registration: create an unverified account and email an OTP.
@@ -18,11 +19,18 @@ const register = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
-    if (password.length < 8) {
+
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters' });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing && existing.isEmailVerified) {
       return res.status(409).json({ message: 'An account with this email already exists' });
     }
@@ -36,7 +44,7 @@ const register = async (req, res) => {
       user = await existing.save();
     } else {
       user = await User.create({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         password: hashedPassword,
         isEmailVerified: false,
         isActive: false,
@@ -51,22 +59,41 @@ const register = async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
     });
 
-    const emailSent = await sendEmail({
-      to: user.email,
-      subject: 'Verify your email - Student Volunteer Program',
-      html: `<p>Your verification code is:</p><h2>${code}</h2><p>This code expires in ${OTP_EXPIRY_MINUTES} minutes.</p>`,
-    });
-    if (!emailSent) {
-      return res.status(503).json({ message: 'Account created, but verification email could not be delivered. Check email configuration and resend the code.' });
+    let emailSent = false;
+    try {
+      emailSent = await sendEmail({
+        to: user.email,
+        subject: 'Verify your email - Student Volunteer Program',
+        html: `<p>Your verification code is:</p><h2>${code}</h2><p>This code expires in ${OTP_EXPIRY_MINUTES} minutes.</p>`,
+      });
+    } catch (mailErr) {
+      console.warn(`[Register] Email sending failed: ${mailErr.message}`);
     }
 
-    res.status(201).json({
+    if (!emailSent) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV OTP] Verification code for ${user.email}: ${code}`);
+        return res.status(201).json({
+          message: 'Account created. Development mode: verification code logged to server console.',
+          email: user.email,
+          devOtp: code,
+        });
+      }
+      return res.status(503).json({
+        message: 'Account created, but verification email could not be delivered. Check email configuration and resend the code.',
+      });
+    }
+
+    return res.status(201).json({
       message: 'Account created. Please check your email for the verification code.',
       email: user.email,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error during registration' });
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'An account with this email already exists' });
+    }
+    console.error('[Register Error]', error.message || error);
+    return res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
@@ -80,9 +107,12 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: 'Email and code are required' });
     }
 
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedCode = typeof code === 'string' ? code.trim() : String(code);
+
     const otpRecord = await Otp.findOne({
-      email: email.toLowerCase(),
-      code,
+      email: normalizedEmail,
+      code: normalizedCode,
       purpose: 'email_verification',
       isUsed: false,
     }).sort({ createdAt: -1 });
@@ -97,7 +127,7 @@ const verifyOtp = async (req, res) => {
     otpRecord.isUsed = true;
     await otpRecord.save();
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ message: 'Account not found' });
     }
@@ -108,7 +138,7 @@ const verifyOtp = async (req, res) => {
 
     const token = generateToken(user._id, user.role);
 
-    res.json({
+    return res.status(200).json({
       message: 'Email verified successfully',
       token,
       user: {
@@ -120,8 +150,8 @@ const verifyOtp = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error during OTP verification' });
+    console.error('[Verify OTP Error]', error.message || error);
+    return res.status(500).json({ message: 'Server error during OTP verification' });
   }
 };
 
@@ -131,7 +161,12 @@ const verifyOtp = async (req, res) => {
 const resendOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email: email?.toLowerCase() });
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ message: 'Account not found' });
     }
@@ -147,19 +182,34 @@ const resendOtp = async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
     });
 
-    const emailSent = await sendEmail({
-      to: user.email,
-      subject: 'Your new verification code',
-      html: `<p>Your new verification code is:</p><h2>${code}</h2><p>This code expires in ${OTP_EXPIRY_MINUTES} minutes.</p>`,
-    });
-    if (!emailSent) {
-      return res.status(503).json({ message: 'Verification email could not be delivered. Check email configuration and try again.' });
+    let emailSent = false;
+    try {
+      emailSent = await sendEmail({
+        to: user.email,
+        subject: 'Your new verification code',
+        html: `<p>Your new verification code is:</p><h2>${code}</h2><p>This code expires in ${OTP_EXPIRY_MINUTES} minutes.</p>`,
+      });
+    } catch (mailErr) {
+      console.warn(`[Resend OTP] Email sending failed: ${mailErr.message}`);
     }
 
-    res.json({ message: 'A new verification code has been sent to your email' });
+    if (!emailSent) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV OTP] Resent verification code for ${user.email}: ${code}`);
+        return res.status(200).json({
+          message: 'A new verification code has been generated (check server console in development).',
+          devOtp: code,
+        });
+      }
+      return res.status(503).json({
+        message: 'Verification email could not be delivered. Check email configuration and try again.',
+      });
+    }
+
+    return res.status(200).json({ message: 'A new verification code has been sent to your email' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error while resending code' });
+    console.error('[Resend OTP Error]', error.message || error);
+    return res.status(500).json({ message: 'Server error while resending code' });
   }
 };
 
@@ -173,7 +223,12 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Email and password must be valid strings' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -192,7 +247,7 @@ const login = async (req, res) => {
 
     const token = generateToken(user._id, user.role);
 
-    res.json({
+    return res.status(200).json({
       message: 'Login successful',
       token,
       user: {
@@ -204,8 +259,8 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error('[Login Error]', error.message || error);
+    return res.status(500).json({ message: 'Server error during login' });
   }
 };
 
@@ -213,7 +268,7 @@ const login = async (req, res) => {
  * Returns the currently logged-in user's basic info (used on app load to restore session).
  */
 const getMe = async (req, res) => {
-  res.json({
+  return res.status(200).json({
     user: {
       id: req.user._id,
       email: req.user.email,
