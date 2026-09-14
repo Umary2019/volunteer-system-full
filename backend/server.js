@@ -20,34 +20,30 @@ const connectDB = require('./config/db');
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || true }));
+app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json());
-
-// URL Normalization: handle requests whether routed to /api/* or /* (e.g. from Vercel rewrites)
-app.use((req, res, next) => {
-  if (!req.url.startsWith('/api') && !req.url.startsWith('/favicon')) {
-    req.url = '/api' + req.url;
-  }
-  next();
-});
 
 // Health check endpoint (does not require DB connection)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Volunteer Management System API running' });
 });
 
-// Database connectivity check for API requests
-app.use(async (req, res, next) => {
-  if (req.path === '/api/health') return next();
+// Database connectivity check for API requests (skip for health check)
+const dbConnectionMiddleware = async (req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/health') return next();
   try {
     await connectDB();
     next();
   } catch (err) {
+    console.error('[Database Connection Error]', err.message);
     return res.status(503).json({
       message: 'Database service is temporarily unavailable. Please try again shortly.',
+      error: process.env.NODE_ENV !== 'production' ? err.message : undefined,
     });
   }
-});
+};
+
+app.use(dbConnectionMiddleware);
 
 // API Routes
 app.use('/api/auth', require('./routes/authRoutes'));

@@ -31,23 +31,40 @@ const connectDB = async () => {
 
   if (!mongoUri) {
     if (process.env.NODE_ENV !== 'production') {
+      console.warn('[MongoDB] MONGO_URI is missing. Falling back to local MongoDB.');
       mongoUri = 'mongodb://127.0.0.1:27017/volunteer_system';
     } else {
-      throw new Error('MONGO_URI is missing. Please set MONGO_URI in environment variables.');
+      throw new Error('MONGO_URI is missing. Please set MONGO_URI in environment variables on Vercel.');
     }
   }
 
+  const connectionOptions = {
+    serverSelectionTimeoutMS: process.env.NODE_ENV === 'production' ? 10000 : 5000,
+    socketTimeoutMS: process.env.NODE_ENV === 'production' ? 45000 : 30000,
+    connectTimeoutMS: process.env.NODE_ENV === 'production' ? 10000 : 5000,
+    retryWrites: true,
+    w: 'majority',
+  };
+
+  console.log(`[MongoDB] Attempting connection to: ${mongoUri.replace(/:[^:]*@/, ':***@')}`);
+  console.log(`[MongoDB] Environment: ${process.env.NODE_ENV}, Timeout: ${connectionOptions.serverSelectionTimeoutMS}ms`);
+
   connectionPromise = mongoose
-    .connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-    })
+    .connect(mongoUri, connectionOptions)
     .then((conn) => {
-      console.log(`[MongoDB] Connected: ${conn.connection.host}`);
+      console.log(`[MongoDB] ✓ Successfully connected to: ${conn.connection.host}`);
       return conn.connection;
     })
     .catch((error) => {
       connectionPromise = null;
-      console.error(`[MongoDB] Connection error: ${error.message}`);
+      console.error(`[MongoDB] ✗ Connection error: ${error.message}`);
+      if (error.message.includes('ECONNREFUSED')) {
+        console.error('[MongoDB] Hint: MongoDB server is not running or not accessible');
+      } else if (error.message.includes('authentication failed')) {
+        console.error('[MongoDB] Hint: Check MONGO_URI credentials in environment variables');
+      } else if (error.message.includes('ETIMEDOUT')) {
+        console.error('[MongoDB] Hint: Network timeout - check MongoDB Atlas firewall whitelist');
+      }
       throw error;
     });
 
