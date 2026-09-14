@@ -6,14 +6,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
 const { app } = require('../backend/server');
-const connectDB = require('../backend/config/db');
 
-module.exports = async (req, res) => {
-  try {
-    await connectDB();
-    return app(req, res);
-  } catch (error) {
-    console.error('[Vercel Serverless Function Error]', error.message || error);
-    return res.status(503).json({ message: 'Database unavailable' });
-  }
+module.exports = (req, res) => {
+  return app(req, res);
 };
